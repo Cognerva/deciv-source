@@ -1,0 +1,62 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath "com.mobidevelop.robovm:robovm-gradle-plugin:$robovmVersion"
+    }
+}
+
+apply plugin: 'robovm'
+apply plugin: 'java-library'
+
+// Simulator builds do not need signing. Distribution builds can opt in without
+// putting a certificate name or provisioning-profile path in the repository:
+//   -PiosSign=true -PiosSignIdentity='...' -PiosProvisioningProfile='...'
+def iosSigningRequested = project.findProperty('iosSign')?.toString()?.toBoolean() ?: false
+
+robovm {
+    // Modern iOS simulator/device builds are arm64-only.
+    arch = 'arm64'
+    archs = 'arm64'
+    iosSkipSigning = !iosSigningRequested
+    if (iosSigningRequested) {
+        iosSignIdentity = project.findProperty('iosSignIdentity')
+        iosProvisioningProfile = project.findProperty('iosProvisioningProfile')
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['src']
+        resources.srcDirs = ['resources']
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+ext {
+    appName = 'DeCiv'
+    mainClassName = 'com.unciv.app.ios.IOSLauncher'
+}
+
+launchIPhoneSimulator.dependsOn build
+launchIPadSimulator.dependsOn build
+launchIOSDevice.dependsOn build
+createIPA.dependsOn build
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx-backend-robovm-metalangle:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-ios"
+    implementation "com.mobidevelop.robovm:robovm-cocoatouch:$robovmVersion"
+    implementation "com.mobidevelop.robovm:robovm-rt:$robovmVersion"
+    implementation project(':core')
+}

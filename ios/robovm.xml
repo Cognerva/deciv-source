@@ -1,0 +1,51 @@
+<config>
+    <executableName>DeCiv</executableName>
+    <mainClass>${app.mainclass}</mainClass>
+    <os>ios</os>
+    <target>ios</target>
+    <iosInfoPList>Info.plist.xml</iosInfoPList>
+    <treeShaker>conservative</treeShaker>
+
+    <resources>
+        <resource>
+            <directory>../android/assets</directory>
+            <includes>
+                <include>**</include>
+            </includes>
+            <skipPngCrush>true</skipPngCrush>
+        </resource>
+        <resource>
+            <directory>resources</directory>
+            <includes>
+                <include>LaunchScreen.storyboard</include>
+                <include>Icon-*.png</include>
+                <include>AltIcon-*.png</include>
+                <include>Assets.car</include>
+            </includes>
+        </resource>
+    </resources>
+
+    <!-- Scene2D creates many UI classes reflectively from Skin.json. -->
+    <forceLinkClasses>
+        <pattern>com.badlogic.gdx.scenes.scene2d.ui.**</pattern>
+        <pattern>com.badlogic.gdx.scenes.scene2d.utils.**</pattern>
+        <pattern>com.badlogic.gdx.graphics.g2d.**</pattern>
+        <pattern>com.unciv.ui.**</pattern>
+    </forceLinkClasses>
+
+    <libs>
+        <lib>z</lib>
+    </libs>
+
+    <frameworks>
+        <framework>UIKit</framework>
+        <framework>QuartzCore</framework>
+        <framework>CoreGraphics</framework>
+        <framework>OpenAL</framework>
+        <framework>AudioToolbox</framework>
+        <framework>AVFoundation</framework>
+        <framework>GameController</framework>
+        <framework>Foundation</framework>
+        <framework>StoreKit</framework>
+    </frameworks>
+</config>
