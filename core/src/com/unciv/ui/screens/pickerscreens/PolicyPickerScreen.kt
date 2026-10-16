@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.pickerscreens
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.PolicyPresenter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Group
@@ -148,7 +150,10 @@ class PolicyPickerScreen(
     val viewingCiv: Civilization,
     val canChangeState: Boolean,
     select: String? = null
-) : PickerScreen(), RecreateOnResize {
+) : PickerScreen(), RecreateOnResize, NativeScreenHost {
+
+    internal val initialSelection = select
+    override val nativeScreen by lazy { PolicyPresenter(this) }
 
     object Sizes {
         const val paddingVertical = 10f

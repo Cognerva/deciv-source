@@ -24,12 +24,16 @@ import com.unciv.ui.components.extensions.packIfNeeded
 import com.unciv.ui.components.extensions.surroundWithCircle
 import com.unciv.ui.images.ImageGetter
 import com.unciv.ui.popups.AskTextPopup
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.ReligionPresenter
 
 class ReligiousBeliefsPickerScreen (
     choosingCiv: Civilization,
-    numberOfBeliefsCanChoose: Counter<BeliefType>,
-    pickIconAndName: Boolean
-): ReligionPickerScreenCommon(choosingCiv, disableScroll = true) {
+    internal val numberOfBeliefsCanChoose: Counter<BeliefType>,
+    internal val pickIconAndName: Boolean
+): ReligionPickerScreenCommon(choosingCiv, disableScroll = true), NativeScreenHost {
+    override val nativeScreen by lazy { ReligionPresenter(this) }
+
     // Roughly follows the layout of the original (although I am not very good at UI designing, so please improve this)
 
     private val topReligionIcons = Table() // Top of the layout, contains icons for religions

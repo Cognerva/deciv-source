@@ -1,5 +1,10 @@
 package com.unciv.ui.screens.basescreen
 
+import com.unciv.ui.nativeui.OptionsPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.popups.hasOpenPopups
+import com.unciv.ui.screens.pickerscreens.TechPickerScreen
+import com.unciv.ui.screens.cityscreen.CityScreen
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Screen
 import com.badlogic.gdx.graphics.Color
@@ -63,7 +68,7 @@ abstract class BaseScreen : Screen {
 
         /** The ExtendViewport sets the _minimum_(!) world size - the actual world size will be larger, fitted to screen/window aspect ratio. */
         val viewport = SafeAreaExtendViewport(height, height) {
-            game.settings.iosSafeAreaInsets && game.supportsSafeAreaInsets()
+            game.settings.iosSafeAreaInsets && game.supportsSafeAreaInsets() && !drawsEdgeToEdge()
         }
         stage = UncivStage(viewport)
         if (Gdx.graphics.width > 0 && Gdx.graphics.height > 0)
@@ -74,6 +79,18 @@ abstract class BaseScreen : Screen {
 
         @Suppress("LeakingThis")
         stage.installShortcutDispatcher(globalShortcuts, this::createDispatcherVetoer)
+    }
+
+    /**
+     * Screens whose controls are all drawn natively let the map run under the notch and home
+     * indicator; the native chrome keeps itself inside the safe area.
+     */
+    private fun drawsEdgeToEdge(): Boolean {
+        val nativeUi = game.getNativeUi() ?: return false
+        if (!nativeUi.replacesWorldHud()) return false
+        return this is WorldScreen || this is MainMenuScreen || this is CityScreen ||
+            this is TechPickerScreen || this is NativeScreenHost ||
+            this is com.unciv.ui.screens.mapeditorscreen.MapEditorScreen
     }
 
     /** The resize dimensions before the safe-area viewport removes platform insets. */
@@ -124,7 +141,21 @@ abstract class BaseScreen : Screen {
         }
 
         stage.act()
-        stage.draw()
+        if (isDrawnNatively()) {
+            // The native screen's own background colour, for the moment before it covers this one
+            Gdx.gl.glClearColor(0.06f, 0.08f, 0.13f, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+        } else stage.draw()
+    }
+
+    /**
+     * A screen drawn entirely natively skips its Scene2D draw, so its old layout never shows for
+     * the frames before the native view arrives. Scene2D popups on it still draw.
+     */
+    private fun isDrawnNatively(): Boolean {
+        if (this !is NativeScreenHost || !nativeActive) return false
+        if (game.getNativeUi()?.replacesScreens() != true) return false
+        return !hasOpenPopups()
     }
 
     override fun resize(width: Int, height: Int) {
@@ -216,6 +247,8 @@ abstract class BaseScreen : Screen {
     fun isNarrowerThan4to3() = stage.isNarrowerThan4to3()
 
     open fun openOptionsPopup(startingPage: OptionsPopupPages = OptionsPopup.defaultPage, withDebug: Boolean = false, onClose: () -> Unit = {}) {
+        // The debug page and keyboard bindings only exist in the Scene2D popup
+        if (!withDebug && game.getNativeUi()?.showSheet(OptionsPresenter(), onClose) == true) return
         OptionsPopup(this, startingPage, withDebug, onClose).open(force = true)
     }
 

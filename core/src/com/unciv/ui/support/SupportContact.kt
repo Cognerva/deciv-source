@@ -20,7 +20,7 @@ object SupportContact {
     private fun buildContactBody(game: UncivGame): String {
         val device = game.getDeviceDescription() ?: "Unknown device"
         return buildString {
-            appendLine("App version: ${UncivGame.VERSION.toNiceString()}")
+            appendLine("App version: ${UncivGame.appVersionString()} (engine ${UncivGame.VERSION.text})")
             appendLine("Platform: $device")
             appendLine("Language: ${game.settings.language}")
             appendLine()

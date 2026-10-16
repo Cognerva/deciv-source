@@ -6,10 +6,13 @@ import com.unciv.models.ruleset.BeliefType
 import com.unciv.models.ruleset.unique.GameContext
 import com.unciv.models.ruleset.unique.UniqueType
 import com.unciv.models.translations.tr
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.PantheonPresenter
 
 class PantheonPickerScreen(
     choosingCiv: Civilization
-) : ReligionPickerScreenCommon(choosingCiv) {
+) : ReligionPickerScreenCommon(choosingCiv), NativeScreenHost {
+    override val nativeScreen by lazy { PantheonPresenter(this) }
     private var selectedPantheon: Belief? = null
     private val selection = Selection()
 

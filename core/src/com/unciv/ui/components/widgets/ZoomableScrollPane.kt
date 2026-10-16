@@ -169,6 +169,11 @@ open class ZoomableScrollPane(
             zoomListener.zoomOut(0.8f)
     }
 
+    /** Animated zoom that keeps the map point under [stageX], [stageY] in place, as maps apps do on a double tap */
+    fun zoomInAt(stageX: Float, stageY: Float) = zoomListener.zoomIn(0.5f, Vector2(stageX, stageY))
+    /** Animated zoom out that keeps the map point under [stageX], [stageY] in place, as maps apps do on a two-finger tap */
+    fun zoomOutAt(stageX: Float, stageY: Float) = zoomListener.zoomOut(0.5f, Vector2(stageX, stageY))
+
     fun isZooming(): Boolean {
         return zoomListener.isZooming
     }
@@ -180,6 +185,8 @@ open class ZoomableScrollPane(
             var startingZoom: Float = 1f
             var finishingZoom: Float = 1f
             var currentZoom: Float = 1f
+            /** Stage point that stays put while zooming; null zooms around the center */
+            var focus: Vector2? = null
 
             init {
                 duration = 0.3f
@@ -197,6 +204,14 @@ open class ZoomableScrollPane(
 
             override fun update(percent: Float) {
                 currentZoom = MathUtils.lerp(startingZoom, finishingZoom, percent)
+                val focus = focus
+                if (focus != null) {
+                    // As in pinch: move the focus point by as much as the scale change pushes it from the center
+                    val scaleChange = currentZoom.coerceIn(minZoom, maxZoom) / scaleX
+                    val dx = (stage.width / 2 - focus.x) * (scaleChange - 1)
+                    val dy = (stage.height / 2 - focus.y) * (scaleChange - 1)
+                    scrollTo(scrollX - dx / scaleX, scrollY + dy / scaleY, true)
+                }
                 zoom(currentZoom)
             }
 
@@ -205,7 +220,7 @@ open class ZoomableScrollPane(
         private var zoomAction: ZoomAction? = null
         var isZooming = false
 
-        fun zoomOut(zoomMultiplier: Float = 0.82f) {
+        fun zoomOut(zoomMultiplier: Float = 0.82f, focus: Vector2? = null) {
             if (scaleX <= minZoom) {
                 if (zoomAction != null)
                     zoomAction!!.finish()
@@ -215,16 +230,18 @@ open class ZoomableScrollPane(
             if (zoomAction != null) {
                 zoomAction!!.startingZoom = zoomAction!!.currentZoom
                 zoomAction!!.finishingZoom *= zoomMultiplier
+                zoomAction!!.focus = focus
                 zoomAction!!.restart()
             } else {
                 zoomAction = ZoomAction()
                 zoomAction!!.startingZoom = scaleX
-                zoomAction!!.finishingZoom = scaleX * zoomMultiplier
+                zoomAction!!.finishingZoom = (scaleX * zoomMultiplier).coerceAtLeast(minZoom)
+                zoomAction!!.focus = focus
                 addAction(zoomAction)
             }
         }
 
-        fun zoomIn(zoomMultiplier: Float = 0.82f) {
+        fun zoomIn(zoomMultiplier: Float = 0.82f, focus: Vector2? = null) {
             if (scaleX >= maxZoom) {
                 if (zoomAction != null)
                     zoomAction!!.finish()
@@ -234,11 +251,13 @@ open class ZoomableScrollPane(
             if (zoomAction != null) {
                 zoomAction!!.startingZoom = zoomAction!!.currentZoom
                 zoomAction!!.finishingZoom /= zoomMultiplier
+                zoomAction!!.focus = focus
                 zoomAction!!.restart()
             } else {
                 zoomAction = ZoomAction()
                 zoomAction!!.startingZoom = scaleX
-                zoomAction!!.finishingZoom = scaleX / zoomMultiplier
+                zoomAction!!.finishingZoom = (scaleX / zoomMultiplier).coerceAtMost(maxZoom)
+                zoomAction!!.focus = focus
                 addAction(zoomAction)
             }
         }
@@ -260,6 +279,8 @@ open class ZoomableScrollPane(
             isZooming = false
             onZoomStopListener?.invoke()
         }
+
+        override fun twoFingerTap(focus: Vector2) = zoomOutAt(focus.x, focus.y)
 
         override fun scrolled(amountX: Float, amountY: Float): Boolean {
             if (amountX > 0 || amountY > 0)

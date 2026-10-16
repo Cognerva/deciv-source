@@ -193,3 +193,5 @@ detekt/reports.html
 /buildSrc/.kotlin/errors/*
 /buildSrc/.kotlin/sessions/*
 /.claude/
+/ios/native/build/
+/ios/native/DecivNativeUI.xcodeproj/

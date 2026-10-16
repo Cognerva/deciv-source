@@ -1,5 +1,11 @@
 package com.unciv.ui.screens.worldscreen
 
+import com.unciv.ui.nativeui.GameCenterProgress
+
+import com.unciv.ui.nativeui.WorldHudPresenter
+import com.unciv.ui.nativeui.MinimapPresenter
+import com.unciv.models.UnitAction
+import com.unciv.logic.map.mapunit.MapUnit
 import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -140,7 +146,9 @@ class WorldScreen(
     private val unitActionsTable = UnitActionsTable(this)
     /** Bottom left widget holding information about a selected unit or city */
     internal val bottomUnitTable = UnitTable(this)
-    private val battleTable = BattleTable(this)
+    internal val battleTable = BattleTable(this)
+    /** Whether the battle preview has content; with a native HUD the Scene2D table stays hidden */
+    internal var nativeBattleShown = false
     private val zoomController = ZoomButtonPair(mapHolder)
     internal val minimapWrapper = MinimapHolder(mapHolder)
     private val bottomTileInfoTable = TileInfoTable(this)
@@ -431,7 +439,7 @@ class WorldScreen(
 
         topBar.update(selectedCiv)
         if (tutorialTaskTable.isVisible)
-            tutorialTaskTable.y = topBar.getYForTutorialTask() - tutorialTaskTable.height
+            tutorialTaskTable.y = tutorialTaskTop() - tutorialTaskTable.height
 
         if (techPolicyAndDiplomacy.update())
             displayTutorial(TutorialTrigger.OtherCivEncountered)
@@ -447,7 +455,7 @@ class WorldScreen(
             autoPlay.stopAutoPlay()
         }
 
-        if (!hasOpenPopups() && !autoPlay.isAutoPlaying() && isPlayersTurn) {
+        if (!hasOpenPopups() && game.getNativeUi()?.isModalShowing() != true && !autoPlay.isAutoPlaying() && isPlayersTurn) {
             when {
                 viewingCiv.shouldShowDiplomaticVotingResults() ->
                     UncivGame.Current.pushScreen(DiplomaticVoteResultScreen(gameInfo.diplomaticVictoryVotesCast, viewingCiv))
@@ -471,17 +479,60 @@ class WorldScreen(
 
         updateGameplayButtons()
 
-        val coveredNotificationsTop = stage.height - statusButtons.y
-        val coveredNotificationsBottom = (bottomTileInfoTable.height + bottomTileInfoTable.y)
+        val coveredNotificationsTop = if (game.getNativeUi()?.replacesWorldHud() == true)
+            stage.height * nativeHudTopFraction
+        else stage.height - statusButtons.y
+        val coveredNotificationsBottom = if (game.getNativeUi()?.replacesWorldHud() == true)
+            stage.height * nativeHudBottomFraction
+        else (bottomTileInfoTable.height + bottomTileInfoTable.y)
 //                (if (game.settings.showMinimap) minimapWrapper.height else 0f)
         notificationsScroll.update(viewingCiv.notifications, coveredNotificationsTop, coveredNotificationsBottom)
 
         val posZoomFromRight = if (game.settings.showMinimap) minimapWrapper.width
         else bottomTileInfoTable.width
         zoomController.setPosition(stage.width - posZoomFromRight - 10f, 10f, Align.bottomRight)
+
+        val nativeUi = game.getNativeUi()
+        if (nativeUi?.replacesWorldHud() == true) {
+            // Native chrome takes over these widgets. They are still laid out above, because the
+            // notifications and tutorial positions are measured against them.
+            topBar.isVisible = false
+            statusButtons.isVisible = false
+            techPolicyAndDiplomacy.isVisible = false
+            unitActionsTable.isVisible = false
+            bottomUnitTable.isVisible = false
+            bottomTileInfoTable.isVisible = false
+            tutorialTaskTable.isVisible = false
+            // Keeps updating hidden: the native minimap reads its tiles and camera
+            minimapWrapper.isVisible = false
+            // Read by the native HUD instead
+            nativeBattleShown = battleTable.isVisible
+            battleTable.isVisible = false
+            notificationsScroll.isVisible = false
+            nativeUi.worldScreenUpdated(this)
+            GameCenterProgress.update(gameInfo)
+        }
     }
 
-    private fun getCurrentTutorialTask(): Event? {
+    /** Snapshot and action routing for platform-native HUD chrome, see [NativeUi] */
+    val nativeHudPresenter by lazy { WorldHudPresenter(this) }
+    val nativeMinimap by lazy { MinimapPresenter(this) }
+
+    internal val isUiEnabled get() = uiEnabled
+
+    /** Fraction of the screen height covered by native HUD chrome at the top, reported by the platform */
+    internal var nativeHudTopFraction = 0f
+    /** Fraction of the screen height covered by native chrome at the bottom right, above the minimap */
+    internal var nativeHudBottomFraction = 0f
+
+    private fun tutorialTaskTop() =
+        if (game.getNativeUi()?.replacesWorldHud() == true) stage.height * (1f - nativeHudTopFraction) - 5f
+        else topBar.getYForTutorialTask()
+
+    internal fun activateUnitAction(unitAction: UnitAction, unit: MapUnit) =
+        unitActionsTable.activateAction(unitAction, unit)
+
+    internal fun getCurrentTutorialTask(): Event? {
         if (!game.settings.tutorialTasksCompleted.contains("Create a trade route")) {
             if (viewingCiv.cache.citiesConnectedToCapitalToMediums.any { it.key.civ == viewingCiv })
                 game.settings.addCompletedTutorialTask("Create a trade route")
@@ -547,7 +598,7 @@ class WorldScreen(
         }
         tutorialTaskTable.pack()
         tutorialTaskTable.centerX(stage)
-        tutorialTaskTable.y = topBar.getYForTutorialTask() - tutorialTaskTable.height
+        tutorialTaskTable.y = tutorialTaskTop() - tutorialTaskTable.height
         tutorialTaskTable.onClick {
             UncivGame.Current.isTutorialTaskCollapsed = !UncivGame.Current.isTutorialTaskCollapsed
             displayTutorialTaskOnUpdate()

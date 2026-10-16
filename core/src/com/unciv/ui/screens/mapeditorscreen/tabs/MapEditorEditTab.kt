@@ -62,6 +62,9 @@ class MapEditorEditTab(
     /** Tile to run a river _to_ */
     private var riverEndTile: Tile? = null
 
+    /** The brush pages by caption, with whether each is disabled, read by the native editor palette */
+    internal val nativeSubTabs = LinkedHashMap<String, Pair<Table, Boolean>>()
+
     private enum class AllEditSubTabs(
         val caption: String,
         val key: Char,
@@ -181,6 +184,7 @@ class MapEditorEditTab(
                 val tab = page.instantiate(this, ruleset)
                 subTabs.replacePage(page.caption, tab)
                 subTabs.setPageDisabled(page.caption, (tab as IMapEditorEditSubTabs).isDisabled())
+                nativeSubTabs[page.caption] = tab to tab.isDisabled()
             }
             brushHandlerType = BrushHandlerType.None
             editorScreen.editTabsNeedRefresh = false

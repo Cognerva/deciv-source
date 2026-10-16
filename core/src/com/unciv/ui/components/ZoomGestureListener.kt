@@ -16,6 +16,12 @@ open class ZoomGestureListener(
     
     private val detector: GestureDetector
 
+    /** For [twoFingerTap]: where and since when the two fingers touch, and whether they stayed put */
+    private val twoFingerStart = arrayOf(Vector2(), Vector2())
+    private var twoFingerDownAt = 0L
+    private var twoFingerCandidate = false
+    private val tapSlop = halfTapSquareSize
+
     constructor(stageSize: () -> Vector2) : this(
         20f,
         0.4f,
@@ -92,6 +98,16 @@ open class ZoomGestureListener(
             return false
         when (event.type) {
             InputEvent.Type.touchDown -> {
+                when (event.pointer) {
+                    0 -> twoFingerCandidate = false
+                    1 -> {
+                        twoFingerCandidate = true
+                        twoFingerDownAt = System.currentTimeMillis()
+                        twoFingerStart[1].set(event.stageX, event.stageY)
+                    }
+                    else -> twoFingerCandidate = false
+                }
+                if (event.pointer == 0) twoFingerStart[0].set(event.stageX, event.stageY)
                 detector.touchDown(event.stageX, event.stageY, event.pointer, event.button)
                 if (event.touchFocus) event.stage.addTouchFocus(
                     this, event.listenerActor, event.target,
@@ -105,9 +121,18 @@ open class ZoomGestureListener(
                     return false
                 }
                 detector.touchUp(event.stageX, event.stageY, event.pointer, event.button)
+                // The first finger lifted ends the gesture: both landed and lifted quickly without moving
+                if (twoFingerCandidate && event.pointer <= 1) {
+                    twoFingerCandidate = false
+                    if (System.currentTimeMillis() - twoFingerDownAt < 300)
+                        twoFingerTap(twoFingerStart[0].cpy().add(twoFingerStart[1]).scl(.5f))
+                }
                 return true
             }
             InputEvent.Type.touchDragged -> {
+                if (twoFingerCandidate && event.pointer <= 1
+                    && twoFingerStart[event.pointer].dst(event.stageX, event.stageY) > tapSlop)
+                    twoFingerCandidate = false
                 detector.touchDragged(event.stageX, event.stageY, event.pointer)
                 return true
             }
@@ -122,4 +147,6 @@ open class ZoomGestureListener(
     /** [translation] in stage coordinates */
     open fun pinch(translation: Vector2, scaleChange: Float) {}
     open fun pinchStop() {}
+    /** Two fingers tapped together, [focus] between them in stage coordinates */
+    open fun twoFingerTap(focus: Vector2) {}
 }

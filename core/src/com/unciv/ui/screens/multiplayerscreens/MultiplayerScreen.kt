@@ -1,5 +1,8 @@
 package com.unciv.ui.screens.multiplayerscreens
 
+import com.unciv.ui.nativeui.MultiplayerPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
@@ -31,8 +34,16 @@ import org.threeten.bp.Duration
 import org.threeten.bp.Instant
 import com.unciv.ui.components.widgets.AutoScrollPane as ScrollPane
 
-class MultiplayerScreen : PickerScreen() {
-    private var selectedGame: MultiplayerGamePreview? = null
+class MultiplayerScreen : PickerScreen(), NativeScreenHost {
+    internal var selectedGame: MultiplayerGamePreview? = null
+        private set
+
+    override val nativeScreen by lazy { MultiplayerPresenter(this) }
+
+    /** The actions for the selected game and the general ones, in the Scene2D screen's order, for [MultiplayerPresenter] */
+    internal val nativeGameActions get() = listOf(rightSideButton, copyGameIdButton, renameButton, skipTurnButton, resignButton, forceResignButton, deleteButton)
+    internal val nativeGeneralActions get() = listOf(addGameButton, copyUserIdButton, friendsListButton, refreshButton)
+    internal fun selectGameNatively(name: String) = selectGame(name)
 
     private val copyGameIdButton = createCopyGameIdButton()
     private val resignButton = createResignButton()

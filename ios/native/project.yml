@@ -1,0 +1,26 @@
+name: DecivNativeUI
+options:
+  bundleIdPrefix: com.cognerva.unciv
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # RoboVM links and embeds this framework; it is never installed on its own.
+    SKIP_INSTALL: NO
+    BUILD_LIBRARY_FOR_DISTRIBUTION: NO
+    CODE_SIGNING_ALLOWED: NO
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  DecivNativeUI:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cognerva.unciv.nativeui
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEFINES_MODULE: YES

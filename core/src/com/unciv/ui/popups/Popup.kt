@@ -1,5 +1,7 @@
 package com.unciv.ui.popups
 
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox
+
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.scenes.scene2d.Actor
@@ -19,6 +21,10 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import com.badlogic.gdx.utils.Align
 import com.unciv.Constants
 import com.unciv.GUI
+import com.unciv.UncivGame
+import com.unciv.ui.components.input.activate
+import com.unciv.ui.nativeui.NativePopupReader
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
 import com.unciv.logic.event.EventBus
 import com.unciv.ui.components.extensions.addSeparator
 import com.unciv.ui.components.extensions.center
@@ -198,6 +204,7 @@ open class Popup(
      * closed. Use [force] = true if you want to open this popup above the other one anyway.
      */
     fun open(force: Boolean = false) {
+        if (showNatively()) return
         stageToShowOn.addActor(this)
         recalculateInnerTableMaxHeight()
         innerTable.pack()
@@ -259,11 +266,88 @@ open class Popup(
      */
     open fun close() {
         events.stopReceiving()
+        if (shownNatively) {
+            shownNatively = false
+            UncivGame.Current.getNativeUi()?.dismissPopup(this)
+            for (listener in closeListeners) listener()
+            return
+        }
         for (listener in closeListeners) listener()
         remove()
         val nextPopup = stageToShowOn.actors.firstOrNull { it is Popup }
         if (nextPopup != null) (nextPopup as Popup).show()
     }
+
+    //region Native presentation
+
+    /** Set while this popup is presented as a native card instead of being on the stage */
+    private var shownNatively = false
+    private var nativeButtons: List<Button> = emptyList()
+    private var nativeInputs: List<Actor> = emptyList()
+    private var nativeJson = ""
+
+    /** Popups whose content changes while open, or that need Scene2D layout, can opt out */
+    protected open val presentNatively = true
+
+    /** Presents simple popups (text, icons, text buttons) as a native card, see [NativePopupReader] */
+    private fun showNatively(): Boolean {
+        if (!presentNatively) return false
+        val nativeUi = UncivGame.Current.getNativeUi() ?: return false
+        if (!nativeUi.replacesWorldHud()) return false
+        val content = NativePopupReader.read(innerTable) ?: return false
+        nativeButtons = content.buttons
+        nativeInputs = content.inputs
+        nativeJson = content.card.toJson()
+        shownNatively = nativeUi.showPopup(this, content.card, { index -> pressNativeButton(index) }) { index, value ->
+            setNativeInput(index, value)
+        }
+        if (shownNatively) for (listener in showListeners) listener()
+        return shownNatively
+    }
+
+    private fun pressNativeButton(index: Int) {
+        val button = nativeButtons.getOrNull(index) ?: return
+        if (!button.activate()) {
+            // Buttons wired with plain libGDX listeners instead of onActivation
+            button.fire(ChangeListener.ChangeEvent())
+            for (listener in button.listeners.filterIsInstance<ClickListener>()) listener.clicked(InputEvent(), 0f, 0f)
+        }
+        // Still open: the press changed it, e.g. "+50" or a validation message
+        if (shownNatively) refreshNative()
+    }
+
+    /** An edit on the card goes into the Scene2D field or checkbox, whose own listeners then run */
+    private fun setNativeInput(index: Int, value: String) {
+        when (val input = nativeInputs.getOrNull(index)) {
+            is CheckBox -> input.isChecked = value == "true"
+            is TextField -> {
+                input.text = value
+                input.setCursorPosition(value.length)
+                input.fire(ChangeListener.ChangeEvent())
+            }
+        }
+    }
+
+    /** Re-reads the content after it changed while presented natively */
+    private fun refreshNative() {
+        if (!shownNatively) return
+        val content = NativePopupReader.read(innerTable)
+        if (content == null) {
+            // It grew controls the native card can't show; fall back to the Scene2D popup
+            shownNatively = false
+            UncivGame.Current.getNativeUi()?.dismissPopup(this)
+            open(force = true)
+            return
+        }
+        nativeButtons = content.buttons
+        nativeInputs = content.inputs
+        val json = content.card.toJson()
+        if (json == nativeJson) return
+        nativeJson = json
+        UncivGame.Current.getNativeUi()?.updatePopup(this, content.card)
+    }
+
+    //endregion
 
     /** Allow closing a popup by clicking 'outside', Android-style, but only if a Close button exists */
     private fun getBehindClickListener() = object : ClickListener() {
@@ -424,6 +508,7 @@ open class Popup(
         if (withCloseButton) {
             addCloseButton()
         }
+        refreshNative()
     }
 
     /**

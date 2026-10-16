@@ -1,5 +1,8 @@
 ﻿package com.unciv.ui.screens.mainmenuscreen
 
+import com.unciv.logic.files.CloudSaves
+import com.unciv.ui.nativeui.GameCenterProgress
+
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.badlogic.gdx.scenes.scene2d.actions.Actions
@@ -21,6 +24,7 @@ import com.unciv.logic.map.mapgenerator.MapGenerator
 import com.unciv.models.metadata.BaseRuleset
 import com.unciv.models.metadata.GameSetupInfo
 import com.unciv.models.ruleset.Ruleset
+import com.unciv.models.translations.tr
 import com.unciv.models.ruleset.RulesetCache
 import com.unciv.models.tilesets.TileSetCache
 import com.unciv.ui.audio.SoundPlayer
@@ -40,6 +44,8 @@ import com.unciv.ui.components.widgets.AutoScrollPane
 import com.unciv.ui.images.ImageGetter
 import com.unciv.ui.images.padTopDescent
 import com.unciv.ui.popups.Popup
+import com.unciv.ui.nativeui.NativeUiJson
+import com.unciv.ui.nativeui.NativeUiJson.Companion.plainText
 import com.unciv.ui.popups.ToastPopup
 import com.unciv.ui.popups.closeAllPopups
 import com.unciv.ui.popups.hasOpenPopups
@@ -77,6 +83,14 @@ class MainMenuScreen: BaseScreen(), RecreateOnResize {
     private var backgroundMapExists = false
 
     companion object {
+        private var cloudSyncedThisLaunch = false
+
+        /**
+         * DeCiv 1.0 ships without online multiplayer: the Unciv server is not ours to depend on.
+         * The screens stay in place for a later Game Center version.
+         */
+        const val multiplayerEnabled = false
+
         const val mapFadeTime = 1.3f
         const val mapFirstFadeTime = 0.3f
         const val mapReplaceDelay = 20f
@@ -84,6 +98,35 @@ class MainMenuScreen: BaseScreen(), RecreateOnResize {
         const val buttonsSize = 60f
         /** Distance of the Civilopedia and support buttons from the stage edges */
         const val buttonsPosFromEdge = 30f
+    }
+
+    // Declared before init, which reads it
+    private class MenuEntry(
+        val id: String,
+        val text: String,
+        val icon: String,
+        val binding: KeyboardBinding,
+        val secondColumn: Boolean,
+        val action: () -> Unit
+    )
+
+    private val menuEntries: List<MenuEntry> by lazy {
+        buildList {
+            if (game.files.autosaves.autosaveExists())
+                add(MenuEntry("resume", "Resume", "OtherIcons/Resume", KeyboardBinding.Resume, false) { resumeGame() })
+            add(MenuEntry("quickstart", "Quickstart", "OtherIcons/Quickstart", KeyboardBinding.Quickstart, false) { quickstartNewGame() })
+            add(MenuEntry("newGame", "Start new game", "OtherIcons/New", KeyboardBinding.StartNewGame, false) { game.pushScreen(NewGameScreen()) })
+            add(MenuEntry("loadGame", "Load game", "OtherIcons/Load", KeyboardBinding.MainMenuLoad, false) { game.pushScreen(LoadGameScreen()) })
+            if (multiplayerEnabled)
+                add(MenuEntry("multiplayer", "Multiplayer", "OtherIcons/Multiplayer", KeyboardBinding.Multiplayer, true) { game.pushScreen(MultiplayerScreen()) })
+            if (GameCenterProgress.platform != null)
+                add(MenuEntry("gameCenter", "Game Center", "OtherIcons/Multiplayer", KeyboardBinding.None, true) {
+                    GameCenterProgress.platform?.showDashboard()
+                })
+            add(MenuEntry("mapEditor", "Map editor", "OtherIcons/MapEditor", KeyboardBinding.MapEditor, true) { game.pushScreen(MapEditorScreen()) })
+            add(MenuEntry("mods", "Mods", "OtherIcons/Mods", KeyboardBinding.ModManager, true) { game.pushScreen(ModManagementScreen()) })
+            add(MenuEntry("options", "Options", "OtherIcons/Options", KeyboardBinding.MainMenuOptions, true) { openOptionsPopup() })
+        }
     }
 
     /** Create one **Main Menu Button** including onClick/key binding
@@ -119,6 +162,15 @@ class MainMenuScreen: BaseScreen(), RecreateOnResize {
     }
 
     init {
+        // Once per launch: a game saved on another device shows up here, and Resume continues it
+        if (!cloudSyncedThisLaunch) {
+            cloudSyncedThisLaunch = true
+            GameCenterProgress.authenticate()
+            CloudSaves.checkAvailability()
+            CloudSaves.sync { changed ->
+                if (changed > 0 && game.screen === this) game.replaceCurrentScreen(MainMenuScreen())
+            }
+        }
         SoundPlayer.initializeForMainMenu()
 
         val background = skinStrings.getUiBackground("MainMenuScreen/Background", tintColor = clearColor)
@@ -147,44 +199,67 @@ class MainMenuScreen: BaseScreen(), RecreateOnResize {
         if (game.settings.tileSet in TileSetCache)
             startBackgroundMapGeneration()
 
+        if (game.getNativeUi()?.replacesMainMenu() == true) {
+            // The platform draws the menu natively; keep the keyboard shortcuts working
+            for (entry in menuEntries)
+                globalShortcuts.add(entry.binding) { performMenuEntry(entry) }
+            globalShortcuts.add(KeyboardBinding.Civilopedia) { openCivilopedia() }
+        } else {
+            addSceneMenu()
+        }
+
+        globalShortcuts.add(KeyboardBinding.QuitMainMenu) {
+            if (hasOpenPopups()) {
+                closeAllPopups()
+                return@add
+            }
+            game.popScreen()
+        }
+    }
+
+    private fun performMenuEntry(entry: MenuEntry) {
+        stopBackgroundMapGeneration()
+        entry.action()
+    }
+
+    /** Snapshot of the menu for a native implementation, see [com.unciv.ui.nativeui.NativeUi] */
+    fun nativeMenuJson(): String = NativeUiJson().obj {
+        put("version", plainText("{Version} ${UncivGame.appVersionString()}".tr()))
+        put("supportAvailable", game.isStoreAvailable())
+        put("supporter", game.settings.supporterUnlocked)
+        array("items") {
+            for (entry in menuEntries) obj {
+                put("id", entry.id)
+                put("title", plainText(entry.text.tr()))
+                put("secondary", entry.secondColumn)
+            }
+        }
+        obj("labels") {
+            put("civilopedia", plainText("Civilopedia".tr()))
+            put("support", plainText("Support DeCiv".tr()))
+            put("contact", plainText("Contact support".tr()))
+        }
+    }.toString()
+
+    /** Performs a menu item id from [nativeMenuJson], or `civilopedia`, `support` or `contact` */
+    fun performNativeMenuAction(id: String) {
+        when (id) {
+            "civilopedia" -> openCivilopedia()
+            "support" -> if (game.isStoreAvailable()) SupportPopup(this).open()
+            "contact" -> SupportContact.open(this)
+            else -> menuEntries.firstOrNull { it.id == id }?.let { performMenuEntry(it) }
+        }
+    }
+
+    private fun addSceneMenu() {
         val column1 = Table().apply { defaults().pad(10f).fillX() }
         val column2 = if (singleColumn) column1 else Table().apply { defaults().pad(10f).fillX() }
 
-        if (game.files.autosaves.autosaveExists()) {
-            val resumeTable = getMenuButton("Resume","OtherIcons/Resume", KeyboardBinding.Resume)
-                { resumeGame() }
-            column1.add(resumeTable).row()
+        for (entry in menuEntries) {
+            val button = getMenuButton(entry.text, entry.icon, entry.binding) { entry.action() }
+            if (entry.id == "options") button.onLongPress { openOptionsPopup(withDebug = true) }
+            (if (entry.secondColumn) column2 else column1).add(button).row()
         }
-
-        val quickstartTable = getMenuButton("Quickstart", "OtherIcons/Quickstart", KeyboardBinding.Quickstart)
-            { quickstartNewGame() }
-        column1.add(quickstartTable).row()
-
-        val newGameButton = getMenuButton("Start new game", "OtherIcons/New", KeyboardBinding.StartNewGame)
-            { game.pushScreen(NewGameScreen()) }
-        column1.add(newGameButton).row()
-
-        val loadGameTable = getMenuButton("Load game", "OtherIcons/Load", KeyboardBinding.MainMenuLoad)
-            { game.pushScreen(LoadGameScreen()) }
-        column1.add(loadGameTable).row()
-
-        val multiplayerTable = getMenuButton("Multiplayer", "OtherIcons/Multiplayer", KeyboardBinding.Multiplayer)
-            { game.pushScreen(MultiplayerScreen()) }
-        column2.add(multiplayerTable).row()
-
-        val mapEditorScreenTable = getMenuButton("Map editor", "OtherIcons/MapEditor", KeyboardBinding.MapEditor)
-            { game.pushScreen(MapEditorScreen()) }
-        column2.add(mapEditorScreenTable).row()
-
-        val modsTable = getMenuButton("Mods", "OtherIcons/Mods", KeyboardBinding.ModManager)
-            { game.pushScreen(ModManagementScreen()) }
-        column2.add(modsTable).row()
-
-        val optionsTable = getMenuButton("Options", "OtherIcons/Options", KeyboardBinding.MainMenuOptions)
-            { openOptionsPopup() }
-        optionsTable.onLongPress { openOptionsPopup(withDebug = true) }
-        column2.add(optionsTable).row()
-
 
         val table = Table().apply { defaults().pad(10f) }
         table.add(column1)
@@ -195,14 +270,6 @@ class MainMenuScreen: BaseScreen(), RecreateOnResize {
         scrollPane.setFillParent(true)
         stage.addActor(scrollPane)
         table.center(scrollPane)
-
-        globalShortcuts.add(KeyboardBinding.QuitMainMenu) {
-            if (hasOpenPopups()) {
-                closeAllPopups()
-                return@add
-            }
-            game.popScreen()
-        }
 
         val civilopediaButton = "?".toLabel(fontSize = 48)
             .apply { setAlignment(Align.center) }

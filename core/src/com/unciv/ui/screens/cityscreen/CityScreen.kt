@@ -1,5 +1,6 @@
 package com.unciv.ui.screens.cityscreen
 
+import com.unciv.ui.nativeui.CityScreenPresenter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Table
@@ -126,6 +127,9 @@ class CityScreen(
         private set
     var selectedTile: TileView? = initSelectedTile
         private set
+
+    /** A native implementation draws everything but the tile map. Declared before init, which reads it. */
+    private val isNative = game.getNativeUi()?.replacesCityScreen() == true
     /** If set, we are waiting for the user to pick a tile for [UniqueType.CreatesOneImprovement] */
     var pickTileData: PickTileForImprovementData? = null
     /** A [Building] with [UniqueType.CreatesOneImprovement] has been selected _in the queue_: show the tile it will place the improvement on */
@@ -154,19 +158,22 @@ class CityScreen(
 
         addTiles()
 
-        // If we are spying then we shoulden't be able to see their construction screen.
-        constructionsTable.addActorsToStage()
-        stage.addActor(cityStatsTable)
-        stage.addActor(selectedConstructionTable)
-        stage.addActor(tileTable)
-        stage.addActor(cityPickerTable)  // add late so it's top in Z-order and doesn't get covered in cramped portrait
-        stage.addActor(exitCityButton)
+        // A native implementation draws everything but the tile map
+        if (!isNative) {
+            // If we are spying then we shoulden't be able to see their construction screen.
+            constructionsTable.addActorsToStage()
+            stage.addActor(cityStatsTable)
+            stage.addActor(selectedConstructionTable)
+            stage.addActor(tileTable)
+            stage.addActor(cityPickerTable)  // add late so it's top in Z-order and doesn't get covered in cramped portrait
+            stage.addActor(exitCityButton)
+        }
         update()
 
         globalShortcuts.add(KeyboardBinding.PreviousCity) { page(-1) }
         globalShortcuts.add(KeyboardBinding.NextCity) { page(1) }
 
-        if (isPortrait()) mapScrollPane.apply {
+        if (isPortrait() && !isNative) mapScrollPane.apply {
             // center scrolling so city center sits more to the bottom right
             scrollX = (maxX - constructionsTable.getLowerWidth() - posFromEdge) / 2
             scrollY = (maxY - cityStatsTable.packIfNeeded().height - posFromEdge + cityPickerTable.top) / 2
@@ -180,6 +187,13 @@ class CityScreen(
         // Recalculate Stats
         cityView.updateCityStats()
 
+        if (isNative) {
+            // The Scene2D tables are not on the stage; only the tile map is drawn here
+            updateTileGroups()
+            game.getNativeUi()?.cityScreenUpdated(this)
+            return
+        }
+
         constructionsTable.isVisible = !isSpying
         constructionsTable.update(selectedConstruction)
 
@@ -188,6 +202,9 @@ class CityScreen(
         // Rest of screen: Map of surroundings
         updateTileGroups()
     }
+
+    /** Snapshot and action routing for a platform-native city screen, see [com.unciv.ui.nativeui.NativeUi] */
+    val nativePresenter by lazy { CityScreenPresenter(this) }
 
     internal fun updateWithoutConstructionAndMap() {
         // Bottom right: Tile or selected construction info
@@ -356,7 +373,7 @@ class CityScreen(
                 stage.width / 2
             razeCityButtonHolder.setPosition(centerX, stage.height - 20f, Align.top)
         }
-        stage.addActor(razeCityButtonHolder)
+        if (!isNative) stage.addActor(razeCityButtonHolder)
     }
 
     private fun addTiles() {

@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.victoryscreen
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.VictoryPresenter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.ui.Table
@@ -33,7 +35,8 @@ import java.util.EnumSet
 class VictoryScreen(
     private val worldScreen: WorldScreen,
     pageNumber: Int = 0
-) : PickerScreen(), RecreateOnResize {
+) : PickerScreen(), RecreateOnResize, NativeScreenHost {
+    override val nativeScreen by lazy { VictoryPresenter(worldScreen) }
     private val music get() = UncivGame.Current.musicController
     private val gameInfo = worldScreen.gameInfo
     private val playerCiv = worldScreen.selectedGameView.civView.getCiv()
@@ -213,6 +216,10 @@ class VictoryScreen(
     override fun recreate(): BaseScreen = VictoryScreen(worldScreen, tabs.activePage)
 
     companion object {
+        /** Names of the tabs [playerCiv] may see, for the native victory screen */
+        internal fun visibleTabs(playerCiv: Civilization): Set<String> =
+            VictoryTabs.entries.filterNot { it.isHidden(playerCiv) }.map { it.name }.toSet()
+
         @Readonly
         fun canViewCivStats(
             gameInfo: GameInfo,

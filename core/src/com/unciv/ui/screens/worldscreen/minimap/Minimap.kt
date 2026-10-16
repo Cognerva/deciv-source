@@ -295,6 +295,19 @@ class Minimap(val mapHolder: WorldMapHolder, minimapSize: Int, private val civIn
     }
 
 
+    /** Revealed tiles, for the native minimap. Their images are positioned in this actor's space, y up. */
+    internal val revealedTiles get() = minimapTiles.asSequence().filter { !it.isUnrevealed }
+
+    /** The camera rectangle in this actor's space, y up */
+    internal val cameraRectangle get() = scrollPositionIndicators[0].let { Rectangle(it.x, it.y, it.width, it.height) }
+
+    /** The revealed tile nearest to ([x], [y]) in this actor's space */
+    internal fun tileNear(x: Float, y: Float) = revealedTiles.minByOrNull {
+        val dx = it.image.x + it.image.width / 2 - x
+        val dy = it.image.y + it.image.height / 2 - y
+        dx * dx + dy * dy
+    }?.tile
+
     // For debugging purposes
     override fun draw(batch: Batch?, parentAlpha: Float) = super.draw(batch, parentAlpha)
 }

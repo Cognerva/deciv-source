@@ -31,14 +31,28 @@ import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.input.onDoubleClick
 import com.unciv.ui.images.ImageGetter
 import com.unciv.GUI
+import com.unciv.ui.nativeui.ImprovementPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
 import com.unciv.ui.screens.cityscreen.CityScreen
 import kotlin.math.roundToInt
 
 class ImprovementPickerScreen(
-    private val tile: Tile,
+    internal val tile: Tile,
     private val unit: MapUnit,
     private val onAccept: ()->Unit,
-) : PickerScreen() {
+) : PickerScreen(), NativeScreenHost {
+    override val nativeScreen by lazy { ImprovementPresenter(this) }
+
+    /** One listed improvement as the native view shows it */
+    internal class Option(
+        val improvement: TileImprovement,
+        val report: ProblemReport,
+        val turns: Int,
+        /** "Provides [x]", "Replaces [y]", "Not in city work range" */
+        val notes: List<String>,
+        val stats: Stats,
+    )
+    internal val options = ArrayList<Option>()
 
     companion object {
         /** Return true if we can report improvements associated with the [problems] (or there are no problems for it at all). */
@@ -47,10 +61,10 @@ class ImprovementPickerScreen(
 
     private var selectedImprovement: TileImprovement? = null
     private val gameInfo = tile.tileMap.gameInfo
-    private val ruleset = gameInfo.ruleset
-    private val currentPlayerCiv = gameInfo.getCurrentPlayerCivilization()
+    internal val ruleset = gameInfo.ruleset
+    internal val currentPlayerCiv = gameInfo.getCurrentPlayerCivilization()
     // Support for UniqueType.CreatesOneImprovement
-    private val tileMarkedForCreatesOneImprovement = tile.isMarkedForCreatesOneImprovement()
+    internal val tileMarkedForCreatesOneImprovement = tile.isMarkedForCreatesOneImprovement()
     private val tileWithoutLastTerrain = getTileWithoutLastTerrain()
     private val maxErasForward = ruleset.modOptions.constants.maxImprovementTechErasForward.takeUnless { it < 0 } ?: Int.MAX_VALUE
 
@@ -105,10 +119,7 @@ class ImprovementPickerScreen(
             ownerTable.add("Unowned tile".toLabel()).pad(10f)
         } else if (tile.getOwner()!!.isCurrentPlayer()) {
             val button = tile.getCity()!!.name.toTextButton(hideIcons = true)
-            button.onClick {
-                val cityView = GUI.getWorldScreen().selectedGameView.getCityView(tile.getCity()!!)
-                this.game.pushScreen(CityScreen(cityView, null, cityView.tileView(tile)))
-            }
+            button.onClick { openOwningCity() }
             val label = "Tile owned by [${tile.getOwner()!!.civName}] (You)".toLabel()
             label.onClick { openCivilopedia(tile.getOwner()!!.nation.makeLink()) }
             ownerTable.add(label)
@@ -123,6 +134,11 @@ class ImprovementPickerScreen(
         topTable.add(ownerTable)
         topTable.row()
         topTable.add(regularImprovements)
+    }
+
+    internal fun openOwningCity() {
+        val cityView = GUI.getWorldScreen().selectedGameView.getCityView(tile.getCity()!!)
+        game.pushScreen(CityScreen(cityView, null, cityView.tileView(tile)))
     }
 
     private fun getTileWithoutLastTerrain(): Tile? {
@@ -160,13 +176,14 @@ class ImprovementPickerScreen(
         else improvement.getTurnsToBuild(currentPlayerCiv, unit)
 
         if (turnsToBuild > 0) labelText += " - $turnsToBuild${Fonts.turn}"
+        val notes = ArrayList<String>()
         val tileResource = tile.tileResource
         val provideResource = currentPlayerCiv.canSeeResource(tileResource) && tileResource.isImprovedBy(improvement.name)
-        if (provideResource) labelText += "\n" + "Provides [${tileResource.name}]".tr()
+        if (provideResource) notes += "Provides [${tileResource.name}]"
         val removeImprovement = (!improvement.isRoad()
             && !improvement.name.startsWith(Constants.remove)
             && improvement.name != Constants.cancelImprovementOrder)
-        if (tile.improvement != null && removeImprovement) labelText += "\n" + "Replaces [${tile.improvement}]".tr()
+        if (tile.improvement != null && removeImprovement) notes += "Replaces [${tile.improvement}]"
 
         val statIcons = getStatIconsTable(provideResource, removeImprovement)
 
@@ -190,7 +207,9 @@ class ImprovementPickerScreen(
             && !tile.getTilesInDistance(currentPlayerCiv.modConstants.cityWorkRange)
                 .any { it.isCityCenter() && it.getCity()!!.civ == currentPlayerCiv }
         )
-            labelText += "\n" + "Not in city work range".tr()
+            notes += "Not in city work range"
+        for (note in notes) labelText += "\n" + note.tr()
+        options += Option(improvement, problemReport, turnsToBuild, notes, stats)
 
         val statsTable = getStatsTable(stats)
         statIcons.add(statsTable).padLeft(13f)
@@ -303,7 +322,7 @@ class ImprovementPickerScreen(
         return statsTable
     }
 
-    private class ProblemReport {
+    internal class ProblemReport {
         var suggestRemoval = false
         var removalImprovement: TileImprovement? = null
         /** `first` is the text, `second` the Civilopedia link */

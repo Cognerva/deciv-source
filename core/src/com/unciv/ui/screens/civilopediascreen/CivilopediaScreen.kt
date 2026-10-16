@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.civilopediascreen
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.CivilopediaPresenter
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.Actor
@@ -37,7 +39,9 @@ class CivilopediaScreen(
     val ruleset: Ruleset,
     category: CivilopediaCategories = CivilopediaCategories.Tutorial,
     link: String = ""
-) : BaseScreen(), RecreateOnResize {
+) : BaseScreen(), RecreateOnResize, NativeScreenHost {
+    override val nativeScreen by lazy { CivilopediaPresenter(ruleset, category, link) }
+
 
     /** Container collecting data per Civilopedia entry
      * @property name From [Ruleset] object [INamed.name]

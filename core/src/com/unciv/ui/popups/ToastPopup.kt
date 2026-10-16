@@ -1,5 +1,7 @@
 package com.unciv.ui.popups
 
+import com.unciv.UncivGame
+import com.unciv.models.translations.tr
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.Align
 import com.unciv.ui.components.extensions.addRoundCloseButton
@@ -28,6 +30,13 @@ class ToastPopup (message: String, stageToShowOn: Stage, val time: Long = 2000) 
     private var timerJob: Job? = null
 
     init {
+        // A native toast replaces this popup entirely; it is then never opened
+        val nativeUi = if (UncivGame.isCurrentInitialized()) UncivGame.Current.getNativeUi() else null
+        val shownNatively = nativeUi?.showToast(message.tr().replace(Regex("«[^»]*»"), ""), time) == true
+        if (!shownNatively) showOnStage(message, stageToShowOn)
+    }
+
+    private fun showOnStage(message: String, stageToShowOn: Stage) {
         //Make this popup unobtrusive
         setFillParent(false)
         onClick(::stayVisible) // or `touchable = Touchable.disabled` so you can operate what's behind

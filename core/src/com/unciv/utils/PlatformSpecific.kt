@@ -1,5 +1,6 @@
 package com.unciv.utils
 
+import com.unciv.ui.nativeui.NativeUi
 import java.util.Locale
 
 data class StoreProduct(
@@ -79,4 +80,7 @@ interface PlatformSpecific {
 
     /** Short device/OS description for prefilled support reports. */
     fun getDeviceDescription(): String? = null
+
+    /** Native chrome that replaces some Scene2D widgets, or null to keep the Scene2D UI everywhere. */
+    fun getNativeUi(): NativeUi? = null
 }

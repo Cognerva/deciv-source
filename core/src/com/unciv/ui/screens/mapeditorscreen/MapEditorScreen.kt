@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.mapeditorscreen
 
+import com.unciv.ui.nativeui.MapEditorPresenter
+
 import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.files.FileHandle
@@ -114,7 +116,12 @@ class MapEditorScreen(map: TileMap? = null) : BaseScreen(), RecreateOnResize {
         descriptionTextField.onChange { isDirty = true }
 
         tabs = MapEditorMainTabs(this)
-        MapEditorToolsDrawer(tabs, stage, mapHolder)
+        val toolsDrawer = MapEditorToolsDrawer(tabs, stage, mapHolder)
+        if (drawnNatively) {
+            // The native palette and sheets replace the drawer; its tabs keep running hidden
+            toolsDrawer.isVisible = false
+            tabs.selectPage(2)
+        }
 
         // The top level pager assigns its own key bindings, but making nested TabbedPagers bind keys
         // so all levels select to show the tab in question is too complex. Sub-Tabs need to maintain
@@ -250,7 +257,16 @@ class MapEditorScreen(map: TileMap? = null) : BaseScreen(), RecreateOnResize {
     // We contain a map...
     override fun getShortcutDispatcherVetoer() = KeyShortcutDispatcherVeto.createTileGroupMapDispatcherVetoer()
 
+    /** Whether the editor's tools are drawn natively, see [MapEditorPresenter] */
+    internal val drawnNatively get() = game.getNativeUi()?.replacesScreens() == true
+
+    val nativePresenter by lazy { MapEditorPresenter(this) }
+
+    /** Bumped when the map or ruleset changes, so the native chrome re-reads its snapshot */
+    internal var nativeRevision = 0
+
     fun loadMap(map: TileMap, newRuleset: Ruleset? = null, selectPage: Int = 0) {
+        nativeRevision++
         clearOverlayImages()
         mapHolder.remove()
         tileMap = map
@@ -260,7 +276,7 @@ class MapEditorScreen(map: TileMap? = null) : BaseScreen(), RecreateOnResize {
         mapHolder = newMapHolder()
         isDirty = false
         Gdx.input.inputProcessor = stage
-        tabs.selectPage(selectPage)  // must be done _after_ resetting inputProcessor!
+        tabs.selectPage(if (drawnNatively && game.getNativeUi()?.currentSheet() == null) 2 else selectPage)  // must be done _after_ resetting inputProcessor!
     }
 
     fun getMapCloneForSave() =
@@ -278,6 +294,7 @@ class MapEditorScreen(map: TileMap? = null) : BaseScreen(), RecreateOnResize {
         
         removeUnitsWithMissingNations(newRuleset)
         modsTabNeedsRefresh = false
+        nativeRevision++
     }
 
     private fun removeUnitsWithMissingNations(forRuleset: Ruleset) {

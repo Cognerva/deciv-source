@@ -13,14 +13,15 @@ import com.unciv.ui.support.SupportPopup
 internal class AppIconTab(
     optionsPopup: OptionsPopup
 ) : OptionsPopupTab(optionsPopup) {
-    private data class AlternateIcon(
+    internal data class AlternateIcon(
         val name: String,
         val systemName: String,
         val preview: String,
         val label: String
     )
 
-    private val alternateIcons = listOf(
+    internal companion object {
+        val alternateIcons = listOf(
         AlternateIcon("Rosette", "rosette", "Icons/Preview-Rosette.png", "Rosette"),
         AlternateIcon("Rosette D", "rosette-d", "Icons/Preview-Rosette-D.png", "Rosette D"),
         AlternateIcon("Knockout", "knockout", "Icons/Preview-Knockout.png", "Knockout"),
@@ -28,7 +29,8 @@ internal class AppIconTab(
         AlternateIcon("Pyramid Night", "pyramid-night", "Icons/Preview-Pyramid-Night.png", "Pyramid (night)"),
         AlternateIcon("Forum Parchment", "forum-parchment", "Icons/Preview-Forum-Parchment.png", "Forum (parchment)"),
         AlternateIcon("Monument Parchment", "monument-parchment", "Icons/Preview-Monument-Parchment.png", "Monument (parchment)")
-    )
+        )
+    }
 
     init {
         addHeader("App Icon")

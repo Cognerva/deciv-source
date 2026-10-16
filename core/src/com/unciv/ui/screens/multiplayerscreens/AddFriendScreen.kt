@@ -1,5 +1,8 @@
 package com.unciv.ui.screens.multiplayerscreens
 
+import com.unciv.ui.nativeui.MirroredPickerPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.unciv.UncivGame
@@ -18,7 +21,9 @@ import com.unciv.utils.isUUID
 class AddFriendScreen(
     initialName: String = "",
     initialID: String = ""
-) : PickerScreen() {
+) : PickerScreen(), NativeScreenHost {
+    override val nativeScreen by lazy { MirroredPickerPresenter(this, "Add friend") }
+
     init {
         val friendNameTextField = UncivTextField("Please input a name for your friend!", initialName)
         val pastePlayerIDButton = "Paste player ID from clipboard".toTextButton()

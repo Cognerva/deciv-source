@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.savescreens
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.SavesPresenter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.scenes.scene2d.ui.Table
@@ -26,7 +28,9 @@ import com.unciv.utils.Log
 import com.unciv.utils.launchOnGLThread
 
 
-class SaveGameScreen(private val gameInfo: GameInfo) : LoadOrSaveScreen("Current saves") {
+class SaveGameScreen(private val gameInfo: GameInfo) : LoadOrSaveScreen("Current saves"), NativeScreenHost {
+    override val nativeScreen by lazy { SavesPresenter(this, gameInfo) }
+
     private val gameNameTextField = UncivTextField(nameFieldLabelText)
 
     companion object : Helpers {

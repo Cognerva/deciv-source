@@ -9,6 +9,7 @@ import com.unciv.logic.map.MapSize;
 import com.unciv.models.metadata.GameSetupInfo;
 import com.unciv.models.ruleset.Ruleset;
 import com.unciv.models.ruleset.RulesetCache;
+import com.unciv.ui.nativeui.NativeUi;
 import com.unciv.ui.screens.basescreen.BaseScreen;
 import com.unciv.ui.screens.civilopediascreen.CivilopediaScreen;
 import com.unciv.ui.screens.LanguagePickerScreen;
@@ -37,15 +38,31 @@ import kotlin.Unit;
 public final class IOSGame extends UncivGame {
 
     private boolean screenshotSceneStarted;
+    private final IOSNativeUi nativeUi;
 
-    public IOSGame() {
+    public IOSGame(boolean nativeUiEnabled) {
         super(false);
+        nativeUi = new IOSNativeUi(nativeUiEnabled);
     }
 
     @Override
     public void create() {
+        // Before super.create(), so the first MainMenuScreen already knows it is drawn natively
+        nativeUi.install();
         super.create();
         if (IOSLauncher.getScreenshotScene() != null) waitForScreenshotScene();
+        if (IOSLauncher.getUiScript() != null) nativeUi.runScript(IOSLauncher.getUiScript());
+    }
+
+    @Override
+    public void render() {
+        super.render();
+        nativeUi.reconcile(this);
+    }
+
+    @Override
+    public NativeUi getNativeUi() {
+        return nativeUi;
     }
 
     /**

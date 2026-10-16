@@ -28,6 +28,8 @@ abstract class ReligionPickerScreenCommon(
     disableScroll: Boolean = false
 ) : PickerScreen(disableScroll) {
 
+    /** The civilization choosing, read by the native pickers */
+    internal val pickingCiv get() = choosingCiv
     protected val gameInfo = choosingCiv.gameInfo
     protected val ruleset = gameInfo.ruleset
 

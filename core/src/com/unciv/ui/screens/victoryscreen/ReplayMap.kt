@@ -24,6 +24,9 @@ abstract class IndependentMiniMap(
 ) : Group() {
     protected lateinit var minimapTiles: List<MinimapTile>
 
+    /** The laid-out tiles, read by the native replay */
+    internal val tilesForNative: List<MinimapTile> get() = minimapTiles
+
     /** Call this in the init of derived classes.
      *
      * Needs to be deferred only to allow [calcTileSize] or [includeTileFilter] to use class parameters added in the derived class. */

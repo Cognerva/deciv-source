@@ -1,5 +1,8 @@
 package com.unciv.ui.screens.multiplayerscreens
 
+import com.unciv.ui.nativeui.MirroredPickerPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.unciv.Constants
@@ -21,7 +24,9 @@ import com.unciv.utils.Concurrency
 import com.unciv.utils.isUUID
 import com.unciv.utils.launchOnGLThread
 
-class AddMultiplayerGameScreen(multiplayerScreen: MultiplayerScreen) : PickerScreen() {
+class AddMultiplayerGameScreen(multiplayerScreen: MultiplayerScreen) : PickerScreen(), NativeScreenHost {
+    override val nativeScreen by lazy { MirroredPickerPresenter(this, "Add multiplayer game") }
+
     init {
         val gameNameTextField = UncivTextField("Game name")
         val gameIDTextField = UncivTextField("GameID")

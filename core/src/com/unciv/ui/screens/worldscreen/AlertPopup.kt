@@ -27,10 +27,13 @@ import com.unciv.ui.components.extensions.disable
 import com.unciv.ui.components.extensions.pad
 import com.unciv.ui.components.extensions.toLabel
 import com.unciv.ui.components.extensions.toTextButton
+import com.unciv.ui.screens.basescreen.BaseScreen
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.unciv.ui.components.input.KeyboardBinding
 import com.unciv.ui.components.input.keyShortcuts
 import com.unciv.ui.components.input.onActivation
 import com.unciv.ui.images.ImageGetter
+import com.unciv.ui.nativeui.NativeStoryCard
 import com.unciv.ui.popups.Popup
 import com.unciv.ui.screens.diplomacyscreen.LeaderIntroTable
 import com.unciv.ui.screens.victoryscreen.VictoryScreen
@@ -85,6 +88,9 @@ class AlertPopup(
     private fun addCloseButton(text: String = Constants.close) =
         addCloseButton(text, KeyboardBinding.NextTurnAlternate, null)
 
+    /** Set while a native card stands in for this popup; the alert is removed when it closes. Declared before init, which sets it. */
+    private var showingNatively = false
+
     init {
         var shouldOpen = true
 
@@ -94,7 +100,9 @@ class AlertPopup(
         // limited to two buttons.
         bottomTable.defaults().growX()
 
-        when (popupAlert.type) {
+        if (popupAlert.type == AlertType.StartIntro && showStartIntroNatively()) {
+            shouldOpen = false
+        } else when (popupAlert.type) {
             // Cities
             AlertType.CityConquered -> addCityConquered()
             AlertType.CityTraded -> addCityTraded()
@@ -132,7 +140,7 @@ class AlertPopup(
             AlertType.Event -> shouldOpen = addEvent()
         }
         if (shouldOpen) open()
-        else viewingCiv.popupAlerts.remove(popupAlert)
+        else if (!showingNatively) viewingCiv.popupAlerts.remove(popupAlert)
     }
 
     //region AlertType handlers
@@ -466,6 +474,32 @@ class AlertPopup(
         return true
     }
 
+    private fun showStartIntroNatively(): Boolean {
+        val civInfo = viewingCiv
+        val nation = civInfo.nation
+        val card = NativeStoryCard(
+            title = civInfo.getLeaderDisplayName().tr(hideIcons = true),
+            pages = listOf(nation.startIntroPart1.tr(), nation.startIntroPart2.tr()).filter { it.isNotBlank() },
+            doneLabel = "Let's begin!".tr(),
+            icon = "NationIcons/${nation.name}",
+            iconBackground = nation.getOuterColor(),
+            iconTint = nation.getInnerColor(),
+        )
+        showingNatively = UncivGame.Current.getNativeUi()?.showStoryCard(card) {
+            viewingCiv.popupAlerts.remove(popupAlert)
+            worldScreen.shouldUpdate = true
+        } == true
+        if (showingNatively) playStartIntroAudio()
+        return showingNatively
+    }
+
+    private fun playStartIntroAudio() {
+        val civInfo = viewingCiv
+        val music = UncivGame.Current.musicController
+        music.chooseTrack(civInfo.nation.name, MusicMood.themeOrPeace, MusicTrackChooserFlags.setSpecific)
+        music.playVoice("${civInfo.nation.name}.startIntroPart1")
+    }
+
     private fun addStartIntro() {
         val civInfo = viewingCiv
         addLeaderName(civInfo)
@@ -474,9 +508,7 @@ class AlertPopup(
         addCloseButton("Let's begin!")
 
         // Since there's introduction text, play the startIntroPart1 voice hook with the nation's theme.
-        val music = UncivGame.Current.musicController
-        music.chooseTrack(civInfo.nation.name, MusicMood.themeOrPeace, MusicTrackChooserFlags.setSpecific)
-        music.playVoice("${civInfo.nation.name}.startIntroPart1")
+        playStartIntroAudio()
     }
 
     private fun addTechResearched() {
@@ -565,7 +597,7 @@ class AlertPopup(
     }
 
     private fun addDestroyOption(destroyAction: () -> Unit) {
-        val button = "Destroy".toTextButton()
+        val button = "Destroy".toTextButton(BaseScreen.skin.get("negative", TextButton.TextButtonStyle::class.java))
         button.onActivation {
             destroyAction()
             close()
@@ -624,7 +656,7 @@ class AlertPopup(
 
     private fun addRazeOption(city: City, mayAnnex: Boolean, conqueringCiv: Civilization) {
         val canRaze = city.canBeDestroyed(justCaptured = true)
-        val button = "Raze".toTextButton()
+        val button = "Raze".toTextButton(BaseScreen.skin.get("negative", TextButton.TextButtonStyle::class.java))
         button.apply {
             if (!canRaze) disable()
             else {

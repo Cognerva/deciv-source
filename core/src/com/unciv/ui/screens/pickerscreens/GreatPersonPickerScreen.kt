@@ -10,9 +10,22 @@ import com.unciv.ui.components.extensions.isEnabled
 import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.input.onDoubleClick
 import com.unciv.ui.screens.worldscreen.WorldScreen
+import com.unciv.ui.nativeui.GreatPersonPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
 
-class GreatPersonPickerScreen(val worldScreen: WorldScreen, val civInfo: Civilization) : PickerScreen() {
+class GreatPersonPickerScreen(val worldScreen: WorldScreen, val civInfo: Civilization) : PickerScreen(), NativeScreenHost {
     private var theChosenOne: BaseUnit? = null
+
+    override val nativeScreen by lazy { GreatPersonPresenter(this) }
+
+    /** False for units outside the Maya long count pool while choosing from it */
+    internal fun isAvailable(unit: BaseUnit) =
+        civInfo.greatPeople.mayaLimitedFreeGP <= 0 || unit.name in civInfo.greatPeople.longCountGPPool
+
+    internal fun choose(unit: BaseUnit) {
+        theChosenOne = unit
+        confirmAction(civInfo.greatPeople.mayaLimitedFreeGP > 0)
+    }
 
     init {
         worldScreen.autoPlay.stopAutoPlay()

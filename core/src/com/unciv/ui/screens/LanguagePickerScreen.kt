@@ -11,6 +11,9 @@ import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.widgets.LanguageTable
 import com.unciv.ui.components.widgets.LanguageTable.Companion.addLanguageKeyShortcuts
 import com.unciv.ui.components.widgets.LanguageTable.Companion.addLanguageTables
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.NativeScreenPresenter
+import com.unciv.ui.nativeui.NativeUiJson
 import com.unciv.ui.popups.options.OptionsPopup
 import com.unciv.ui.screens.mainmenuscreen.MainMenuScreen
 import com.unciv.ui.screens.pickerscreens.PickerScreen
@@ -19,7 +22,7 @@ import com.unciv.ui.screens.pickerscreens.PickerScreen
  *  After that, [OptionsPopup] provides the functionality.
  *  Reusable code is in [LanguageTable] and [addLanguageTables].
  */
-class LanguagePickerScreen : PickerScreen() {
+class LanguagePickerScreen : PickerScreen(), NativeScreenHost {
     private var chosenLanguage: String
 
     private val languageTables: ArrayList<LanguageTable>
@@ -63,6 +66,33 @@ class LanguagePickerScreen : PickerScreen() {
     private fun onChoice() {
         rightSideButton.enable()
         update()
+    }
+
+    override val nativeScreen = object : NativeScreenPresenter {
+        override val kind = "languages"
+
+        override fun snapshotJson() = NativeUiJson().obj {
+            put("title", NativeUiJson.plainText("Pick language".tr()))
+            put("disclaimer", NativeUiJson.plainText(("Please note that translations are a community-based work in progress and are" +
+                " INCOMPLETE! The percentage shown is how much of the language is translated in-game.").tr()))
+            put("chosen", chosenLanguage)
+            put("confirm", NativeUiJson.plainText("Pick language".tr()))
+            array("languages") {
+                for (table in languageTables) obj {
+                    put("id", table.language)
+                    put("name", table.language.replace('_', ' '))
+                    put("tag", LocaleCode.find(table.language)?.languageTag)
+                    put("percent", table.percentComplete)
+                }
+            }
+        }.toString()
+
+        override fun perform(id: String) {
+            when {
+                id.startsWith("choose:") -> onChoice(id.removePrefix("choose:"))
+                id == "confirm" -> if (chosenLanguage.isNotEmpty()) pickLanguage()
+            }
+        }
     }
 
     private fun pickLanguage() {

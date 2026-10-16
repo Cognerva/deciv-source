@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.basescreen
 
+import com.unciv.models.translations.tr
+import com.unciv.ui.nativeui.NativeStoryCard
 import com.unciv.Constants
 import com.unciv.UncivGame
 import com.unciv.models.TutorialTrigger
@@ -63,7 +65,21 @@ data class TutorialForRender(val tutorial: TutorialTrigger, val texts: List<Stri
 class TutorialRender(private val screen: BaseScreen) {
 
     fun showTutorial(tutorial: TutorialForRender, closeAction: () -> Unit) {
+        // Some keys are camel case ("_OtherCivEncountered"); split those into words
+        val title = tutorial.tutorial.value.replace('_', ' ').trimStart()
+            .let { if (' ' in it) it else it.replace(Regex("(?<=[a-z])(?=[A-Z])"), " ") }.tr()
+        if (tutorial.texts.isNotEmpty() && showNatively(tutorial.tutorial.name, title, tutorial.texts, closeAction)) return
         showDialog(tutorial.tutorial.name, tutorial.texts, closeAction)
+    }
+
+    private fun showNatively(tutorialName: String, title: String, texts: List<String>, closeAction: () -> Unit): Boolean {
+        val card = NativeStoryCard(
+            title = title,
+            pages = texts.map { it.tr() },
+            doneLabel = Constants.close.tr(),
+            image = ImageGetter.findExternalImage(tutorialName),
+        )
+        return UncivGame.Current.getNativeUi()?.showStoryCard(card, closeAction) == true
     }
 
     private fun showDialog(tutorialName: String, texts: List<String>, closeAction: () -> Unit) {

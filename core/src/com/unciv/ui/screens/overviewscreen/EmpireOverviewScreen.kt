@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.overviewscreen
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.OverviewPresenter
 import com.badlogic.gdx.graphics.Color
 import com.unciv.Constants
 import com.unciv.GUI
@@ -16,7 +18,9 @@ class EmpireOverviewScreen(
     private var viewingPlayer: CivView,
     defaultCategory: EmpireOverviewCategories? = null,
     selection: String = ""
-) : BaseScreen(), RecreateOnResize {
+) : BaseScreen(), RecreateOnResize, NativeScreenHost {
+    override val nativeScreen by lazy { OverviewPresenter(viewingPlayer, defaultCategory) }
+
     // 50 normal button height + 2*10 topTable padding + 2 Separator + 2*5 centerTable padding
     // Since a resize recreates this screen this should be fine as a val
     internal val centerAreaHeight = stage.height - 82f

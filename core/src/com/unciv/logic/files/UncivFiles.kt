@@ -154,7 +154,7 @@ class UncivFiles(
      */
     fun deleteSave(file: FileHandle): Boolean {
         debug("Deleting save %s", file.path())
-        return file.delete()
+        return file.delete().also { if (it) CloudSaves.deleted(file) }
     }
 
     //endregion
@@ -184,6 +184,7 @@ class UncivFiles(
                 game.version = CompatibilityVersion.CURRENT_COMPATIBILITY_VERSION
                 json().toJson(game, file)
             }
+            CloudSaves.saved(file)
             saveCompletionCallback(null)
         } catch (ex: Exception) {
             saveCompletionCallback(ex)

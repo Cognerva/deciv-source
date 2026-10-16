@@ -1,5 +1,8 @@
 package com.unciv.ui.screens.multiplayerscreens
 
+import com.unciv.ui.nativeui.MirroredPickerPresenter
+import com.unciv.ui.nativeui.NativeScreenHost
+
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.unciv.logic.multiplayer.FriendList
@@ -11,7 +14,9 @@ import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.extensions.toTextButton
 import com.unciv.ui.components.widgets.AutoScrollPane as ScrollPane
 
-class ViewFriendsListScreen : PickerScreen() {
+class ViewFriendsListScreen : PickerScreen(), NativeScreenHost {
+    override val nativeScreen by lazy { MirroredPickerPresenter(this, "Friends list", help = "To add a friend, ask him to send you his player ID.\nClick the 'Add friend' button.\nInsert his player ID and a name for him.\nThen click the 'Add friend' button again.\n\nAfter that you will see him in your friends list.\n\nA new button will appear when creating a new\nmultiplayer game, which allows you to select your friend.") }
+
     private val rightSideTable = Table()
     private val leftSideTable = Table()
     private var friendsTable = Table()

@@ -22,7 +22,7 @@ class TradeTable(
     private val offerColumnsTableWrapper = Table()
 
     val offerTradeText = "{Offer trade}\n({They'll decide on their turn})"
-    private val offerButton = offerTradeText.toTextButton()
+    internal val offerButton = offerTradeText.toTextButton()
 
     private fun retractOffer() {
         tradeView.tryRetractOffer()
@@ -84,6 +84,9 @@ class TradeTable(
         retractOffer()
         offerButton.isEnabled = !(tradeView.theirStagedOffers().size == 0 && tradeView.ourStagedOffers().size == 0)
     }
+
+    /** For the native trade screen, after it changed the staged offers directly */
+    internal fun changedNatively() = onChange()
 
     fun enableOfferButton(isEnabled: Boolean) {
         offerButton.isEnabled = isEnabled

@@ -1,6 +1,8 @@
 package com.unciv.ui.screens.savescreens
 
 import com.badlogic.gdx.Gdx
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.SavesPresenter
 import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
@@ -30,7 +32,9 @@ import com.unciv.utils.Log
 import com.unciv.utils.launchOnGLThread
 import kotlinx.coroutines.CoroutineScope
 
-class LoadGameScreen : LoadOrSaveScreen() {
+class LoadGameScreen : LoadOrSaveScreen(), NativeScreenHost {
+    override val nativeScreen by lazy { SavesPresenter(this, null) }
+
     private val copySavedGameToClipboardButton = getCopyExistingSaveToClipboardButton()
     
     /** Inheriting here again exposes [getLoadExceptionMessage] and [loadMissingMods] to
@@ -206,6 +210,12 @@ class LoadGameScreen : LoadOrSaveScreen() {
                 ToastPopup(saveToClipboardErrorMessage, this@LoadGameScreen)
             }
         }
+    }
+
+    /** Lets the native screen reuse the missing-mods download flow */
+    internal fun handleNativeLoadFailure(ex: Exception) {
+        if (ex is MissingModsException) loadMissingModsAsync(ex.missingMods)
+        if (ex is MissingNationException) redownloadUnupdatedMods(ex.modNames)
     }
 
     private fun handleLoadGameException(ex: Exception, primaryText: String = "Could not load game!") {

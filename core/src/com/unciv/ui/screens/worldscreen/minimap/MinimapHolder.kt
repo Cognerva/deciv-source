@@ -27,6 +27,8 @@ class MinimapHolder(val mapHolder: WorldMapHolder) : Table() {
     private var maximized = false
     private var lastCutoutSetting = false
     lateinit var minimap: Minimap
+    /** [minimap], once the first update has built it */
+    internal val minimapOrNull get() = if (::minimap.isInitialized) minimap else null
 
     /** Button, next to the minimap, to toggle the unit movement map overlay. */
     val movementsImageButton = MapOverlayToggleButton(

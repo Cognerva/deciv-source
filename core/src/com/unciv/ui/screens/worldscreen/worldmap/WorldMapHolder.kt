@@ -126,6 +126,11 @@ class WorldMapHolder(
                     return
                 }
                 if (child is WorldTileGroup) {
+                    if (count >= 2 && button == 0 && event != null) {
+                        // Double tap zooms in like a maps app; the first tap already selected the tile
+                        zoomInAt(event.stageX, event.stageY)
+                        return
+                    }
                     Concurrency.runOnGLThread("Sound") { SoundPlayer.play(UncivSound.Click) }
 
                     if (button == 0) onTileClicked(child.tileView) // Regular click

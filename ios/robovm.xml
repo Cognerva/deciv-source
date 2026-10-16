@@ -4,6 +4,7 @@
     <os>ios</os>
     <target>ios</target>
     <iosInfoPList>Info.plist.xml</iosInfoPList>
+    <iosEntitlementsPList>Entitlements.plist</iosEntitlementsPList>
     <treeShaker>conservative</treeShaker>
 
     <resources>
@@ -31,6 +32,8 @@
         <pattern>com.badlogic.gdx.scenes.scene2d.utils.**</pattern>
         <pattern>com.badlogic.gdx.graphics.g2d.**</pattern>
         <pattern>com.unciv.ui.**</pattern>
+        <!-- IOSNativeUi's action target is only called back from Swift. -->
+        <pattern>com.unciv.app.ios.**</pattern>
     </forceLinkClasses>
 
     <libs>
@@ -47,5 +50,12 @@
         <framework>GameController</framework>
         <framework>Foundation</framework>
         <framework>StoreKit</framework>
+        <framework>GameKit</framework>
+        <framework>DecivNativeUI</framework>
     </frameworks>
+
+    <!-- SwiftUI overlay, built by the buildNativeUI Gradle task from ios/native. -->
+    <xcFrameworks>
+        <path>native/build/DecivNativeUI.xcframework</path>
+    </xcFrameworks>
 </config>

@@ -51,6 +51,8 @@ class GameSettings {
     var notificationScroll: String = NotificationsScroll.UserSetting.default().name
     var showMinimap = true
     var showTutorials = true
+    /** Mirror saved games to iCloud Drive, see [com.unciv.logic.files.CloudSaves] */
+    var iCloudSaves = true
     // There have no UI other than the "Reset tutorials" button:
     var tutorialsShown = HashSet<String>()
     var tutorialTasksCompleted = HashSet<String>()
@@ -101,6 +103,8 @@ class GameSettings {
     var longTapMove = true
     var orderTradeOffersByAmount = true
     var confirmNextTurn = false
+    /** End the turn by itself once the last unit has orders and nothing else needs a decision */
+    var autoEndTurn = false
     var notificationsLogMaxTurns = 5
     //endregion
 
@@ -234,7 +238,9 @@ class GameSettings {
 
     fun addCompletedTutorialTask(tutorialTask: String): Boolean {
         if (!tutorialTasksCompleted.add(tutorialTask)) return false
-        UncivGame.Current.isTutorialTaskCollapsed = false
+        // The native hint keeps the player's choice; the Scene2D one re-expands for each new task
+        if (UncivGame.Current.getNativeUi()?.replacesWorldHud() != true)
+            UncivGame.Current.isTutorialTaskCollapsed = false
         save()
         return true
     }

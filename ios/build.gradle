@@ -48,6 +48,19 @@ ext {
     mainClassName = 'com.unciv.app.ios.IOSLauncher'
 }
 
+// SwiftUI overlay linked through robovm.xml's <xcFrameworks>.
+def buildNativeUI = tasks.register('buildNativeUI', Exec) {
+    description = 'Builds the DecivNativeUI xcframework from ios/native'
+    inputs.dir('native/Sources')
+    inputs.file('native/project.yml')
+    inputs.file('native/build-xcframework.sh')
+    outputs.dir('native/build/DecivNativeUI.xcframework')
+    commandLine 'sh', file('native/build-xcframework.sh').absolutePath
+}
+tasks.matching {
+    it.name in ['launchIPhoneSimulator', 'launchIPadSimulator', 'launchIOSDevice', 'createIPA', 'robovmInstall']
+}.configureEach { dependsOn buildNativeUI }
+
 launchIPhoneSimulator.dependsOn build
 launchIPadSimulator.dependsOn build
 launchIOSDevice.dependsOn build

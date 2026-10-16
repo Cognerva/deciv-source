@@ -8,6 +8,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.unciv.GUI
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.PromotionPresenter
 import com.unciv.logic.map.mapunit.MapUnit
 import com.unciv.models.TutorialTrigger
 import com.unciv.models.UncivSound
@@ -29,7 +31,7 @@ class PromotionPickerScreen private constructor(
     private val closeOnPick: Boolean,
     private val originalName: String?,
     private val onChange: (() -> Unit)?
-) : PickerScreen(), RecreateOnResize {
+) : PickerScreen(), RecreateOnResize, NativeScreenHost {
     /** Show promotions organized by depencencies, allow picking new ones, allow unit rename
      *  @param unit The MapUnit to work with
      *  @param closeOnPick Should picking a new promotion close the screen?
@@ -53,16 +55,38 @@ class PromotionPickerScreen private constructor(
     private var lines = ArrayList<Image>()
 
     // [acceptPromotion] will [recreate] the screen, so these are constant for this picker's lifetime
-    private val canChangeState = GUI.isAllowedChangeState()
-    private val canPromoteNow = canChangeState &&
+    internal val canChangeState = GUI.isAllowedChangeState()
+    internal val canPromoteNow = canChangeState &&
             unit.promotions.canBePromoted() &&
             unit.hasMovement() && unit.attacksThisTurn == 0
 
     // Logic
-    private val tree = PromotionTree(unit)
+    internal val tree = PromotionTree(unit)
 
     // This if we should save the unit promotion or not.
-    private var saveUnitPromotion = false
+    internal var saveUnitPromotion = false
+
+    override val nativeScreen by lazy { PromotionPresenter(this) }
+
+    /** Whether the node can be adopted now, with any promotions on the way to it */
+    internal fun isPickable(node: PromotionTree.PromotionNode) = canPromoteNow &&
+        (!node.pathIsAmbiguous || node.distanceToAdopted == 1) && tree.canBuyUpTo(node.promotion)
+
+    internal fun acceptNatively(node: PromotionTree.PromotionNode) {
+        acceptPromotion(promotionToButton[node.promotion.name])
+        checkSaveUnitPromotion()
+    }
+
+    internal fun closeNatively() {
+        if (unit.instanceName != originalName) onChange?.invoke()
+        game.popScreen()
+    }
+
+    /** Whether the unit stands in one of its civilization's own, non-puppet cities, where default promotions can be saved */
+    internal fun canSaveUnitPromotion(): Boolean {
+        val city = unit.currentTile.getCity() ?: return false
+        return city.civ == unit.civ && !city.isPuppet
+    }
 
     init {
         closeButton.onActivation {

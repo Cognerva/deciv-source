@@ -16,13 +16,13 @@ internal class AboutTab(
     init {
         pad(20f)
 
-        val sourceTag = "${Constants.decivSourceURL}tree/v${UncivGame.VERSION.text}-build${UncivGame.VERSION.number}"
+        val sourceTag = "${Constants.decivSourceURL}tree/${UncivGame.sourceTag}"
         val lines = sequence {
             yield(FormattedLine(extraImage = "Icons/Preview-Monolith.png", imageSize = 128f, centered = true))
             yield(FormattedLine())
-            yield(FormattedLine("{Version}: ${UncivGame.VERSION.toNiceString()}", link = sourceTag))
+            yield(FormattedLine("{Version}: ${UncivGame.appVersionString()}", link = sourceTag))
             yield(FormattedLine("Open source code and licenses", link = sourceTag))
-            yield(FormattedLine("DeCiv is an independent iOS port of Unciv. It is not affiliated with, endorsed by, or supported by the Unciv project or its authors."))
+            yield(FormattedLine("DeCiv is an independent game derived from the open-source Unciv project. It is not affiliated with, endorsed by, or supported by the Unciv project or its authors."))
             yield(FormattedLine("Unciv is © yairm210 and contributors, licensed under the Mozilla Public License 2.0. DeCiv's modified source is published at github.com/Cognerva/deciv-source."))
             yield(FormattedLine("Civilization is a trademark of Take-Two Interactive. DeCiv is not associated with or endorsed by Take-Two Interactive."))
             yield(FormattedLine("Under MPL-2.0 §3.2(a), the corresponding source for this build is available at the published DeCiv source tag.", link = sourceTag))

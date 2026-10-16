@@ -36,6 +36,8 @@ import com.unciv.ui.components.input.onActivation
 import com.unciv.ui.components.input.onClick
 import com.unciv.ui.components.widgets.ExpanderTab
 import com.unciv.ui.images.ImageGetter
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.NewGamePresenter
 import com.unciv.ui.popups.ConfirmPopup
 import com.unciv.ui.popups.Popup
 import com.unciv.ui.popups.ToastPopup
@@ -53,7 +55,7 @@ import com.unciv.ui.components.widgets.AutoScrollPane as ScrollPane
 
 class NewGameScreen(
     defaultGameSetupInfo: GameSetupInfo? = null
-): IPreviousScreen, PickerScreen(), RecreateOnResize {
+): IPreviousScreen, PickerScreen(), RecreateOnResize, NativeScreenHost {
 
     override val gameSetupInfo = defaultGameSetupInfo ?: GameSetupInfo.fromSettings()
     override val ruleset = Ruleset()  // updateRuleset will clear and add
@@ -156,6 +158,48 @@ class NewGameScreen(
                 return@run
             }
             startGame()
+        }
+    }
+
+    override val nativeScreen by lazy { NewGamePresenter(this) }
+
+    /** The native setup only offers generated maps */
+    internal fun useGeneratedMap() {
+        if (mapOptionsTable.mapTypeSelectBox.selected.value != MapGeneratedMainType.generated)
+            mapOptionsTable.mapTypeSelectBox.setSelected(MapGeneratedMainType.generated)
+    }
+
+    internal fun closeNatively() {
+        mapOptionsTable.cancelBackgroundJobs()
+        game.popScreen()
+    }
+
+    internal fun resetToDefaults() {
+        val gameSetupInfo = GameSetupInfo().apply { gameParameters.espionageEnabled = true }
+        game.replaceCurrentScreen(NewGameScreen(gameSetupInfo))
+    }
+
+    /**
+     * Starts a single-player game on a generated map without Scene2D popups, for the native setup.
+     * [onError] runs on the GL thread with a message for the player.
+     */
+    internal fun startGameNatively(onError: (String) -> Unit) {
+        mapOptionsTable.cancelBackgroundJobs()
+        setSkin()
+        ImageGetter.setNewRuleset(ruleset) // To build the temp atlases
+        Concurrency.runOnNonDaemonThreadPool("NewGame") {
+            val newGame = try {
+                GameStarter.startNewGame(gameSetupInfo)
+            } catch (exception: Exception) {
+                Log.error("Could not start new game", exception)
+                launchOnGLThread {
+                    onError("It looks like we can't make a map with the parameters you requested!".tr() + "\n" +
+                        "Maybe you put too many players into too small a map?".tr())
+                }
+                return@runOnNonDaemonThreadPool
+            }
+            val worldScreen = game.loadGame(newGame)
+            worldScreen.autoSave()
         }
     }
 

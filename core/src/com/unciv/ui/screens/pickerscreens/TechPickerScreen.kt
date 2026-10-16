@@ -1,5 +1,6 @@
 package com.unciv.ui.screens.pickerscreens
 
+import com.unciv.ui.nativeui.TechTreePresenter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.g2d.Batch
@@ -39,12 +40,14 @@ class TechPickerScreen(
     centerOnTech: Technology? = null,
 ) : PickerScreen() {
 
-    private val freeTechPick: Boolean = civInfo.tech.freeTechs != 0
+    internal val freeTechPick: Boolean = civInfo.tech.freeTechs != 0
     private val ruleset = civInfo.gameInfo.ruleset
     private var techNameToButton = HashMap<String, TechButton>()
-    private var selectedTech: Technology? = null
+    internal var selectedTech: Technology? = null
+        private set
     private var civTech: TechManager = civInfo.tech
-    private var tempTechsToResearch: ArrayList<String>
+    internal var tempTechsToResearch: ArrayList<String>
+        private set
     private var lines = NonTransformGroup().apply { touchable = Touchable.disabled }
     private var orderIndicators = NonTransformGroup().apply { touchable = Touchable.disabled }
     private var eraLabels = ArrayList<Label>()
@@ -64,7 +67,7 @@ class TechPickerScreen(
     }
 
     // All these are to counter performance problems when updating buttons for all techs.
-    private var researchableTechs = ruleset.technologies.keys
+    internal var researchableTechs = ruleset.technologies.keys
             .filter { civTech.canBeResearched(it) }.toHashSet()
 
     private val currentTechColor = skinStrings.getUIColor("TechPickerScreen/CurrentTechColor", colorFromRGB(72, 147, 175))
@@ -73,7 +76,7 @@ class TechPickerScreen(
     private val queuedTechColor = skinStrings.getUIColor("TechPickerScreen/QueuedTechColor", colorFromRGB(7*2, 46*2, 43*2))
     private val researchedFutureTechColor = skinStrings.getUIColor("TechPickerScreen/ResearchedFutureTechColor", colorFromRGB(127, 50, 0))
 
-    private val turnsToTech = ruleset.technologies.values.associateBy({ it.name }, { civTech.turnsToTech(it.name) })
+    internal val turnsToTech = ruleset.technologies.values.associateBy({ it.name }, { civTech.turnsToTech(it.name) })
 
     init {
         Gdx.input.inputProcessor = null // Avoid ANRs while building the tech screen
@@ -120,8 +123,11 @@ class TechPickerScreen(
 
     override fun getCivilopediaRuleset() = ruleset
 
+    /** Snapshot and action routing for a platform-native tech tree, see [com.unciv.ui.nativeui.NativeUi] */
+    val nativePresenter by lazy { TechTreePresenter(this) }
 
-    private fun tryExit() {
+
+    internal fun tryExit() {
         if (freeTechPick) {
             val freeTech = selectedTech!!.name
             // More evil people fast-clicking to cheat - #4977
@@ -383,7 +389,7 @@ class TechPickerScreen(
         orderIndicators.setSize(techTable.width, techTable.height)
     }
 
-    private fun selectTechnology(tech: Technology?, queue: Boolean = false, center: Boolean = false, switchFromWorldScreen: Boolean = true) {
+    internal fun selectTechnology(tech: Technology?, queue: Boolean = false, center: Boolean = false, switchFromWorldScreen: Boolean = true) {
 
         val previousSelectedTech = selectedTech
         selectedTech = tech

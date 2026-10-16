@@ -253,6 +253,7 @@ open class UncivGame(val isConsoleMode: Boolean = false) : Game(), PlatformSpeci
 
     private fun setScreen(newScreen: BaseScreen) {
         debug("Setting new screen: %s, screenStack: %s", newScreen, screenStack)
+        getNativeUi()?.screenChanging(newScreen)
         Gdx.input.inputProcessor = newScreen.stage
         super.setScreen(newScreen) // This can set the screen to the policy picker or tech picker screen, so the input processor must be set before
         if (newScreen is WorldScreen) {
@@ -461,8 +462,21 @@ private fun logRunningThreads() {
 
     companion object {
         //region AUTOMATICALLY GENERATED VERSION DATA - DO NOT CHANGE THIS REGION, INCLUDING THIS COMMENT
-        val VERSION = Version("4.21.11", 1274)
+        val VERSION = Version("4.21.11", 1287)
         //endregion
+
+        /**
+         * DeCiv's own release version, shown to players and used for the App Store and the source
+         * tags (`v<APP_VERSION>-build<number>`). [VERSION] stays the game engine's version, which
+         * saves and maps record.
+         */
+        const val APP_VERSION = "1.0"
+
+        /** e.g. "1.0 (Build 1284)" */
+        fun appVersionString() = "$APP_VERSION (Build ${VERSION.number})"
+
+        /** The public source tree for this build */
+        val sourceTag get() = "v$APP_VERSION-build${VERSION.number}"
 
         /** Global reference to the one Gdx.Game instance created by the platform launchers - do not use without checking [isCurrentInitialized] first. */
         // Set by Gdx Game.create callback, or the special cases ConsoleLauncher and unit tests make do with out Gdx and set this themselves.

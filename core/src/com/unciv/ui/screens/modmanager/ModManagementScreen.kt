@@ -1,5 +1,11 @@
 package com.unciv.ui.screens.modmanager
 
+import com.unciv.ui.components.input.activate
+
+import com.unciv.ui.nativeui.ModsPresenter
+
+import com.unciv.ui.nativeui.NativeScreenHost
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.Actor
@@ -69,7 +75,7 @@ import kotlin.math.max
 class ModManagementScreen private constructor(
     previousInstalledMods: HashMap<String, ModUIData>?,
     previousOnlineMods: HashMap<String, ModUIData>?
-): PickerScreen(disableScroll = true), RecreateOnResize {
+): PickerScreen(disableScroll = true), RecreateOnResize, NativeScreenHost {
     /** The Mod Management Screen - called only from [MainMenuScreen] */
     constructor() : this(null, null)
 
@@ -133,6 +139,43 @@ class ModManagementScreen private constructor(
     // Therefore, finding `runningSearchJob?.isActive == false && !stopBackgroundTasks` means stopped by user
     private var stopBackgroundTasks = false
 
+    //region Native screen, see [ModsPresenter]
+
+    override val nativeScreen by lazy { ModsPresenter(this) }
+
+    internal val installedMods: Map<String, ModUIData> get() = installedModInfo
+    internal val onlineMods: Map<String, ModUIData> get() = onlineModInfo
+    internal val excludedAuthors: Iterable<String> get() = excludedModAuthors
+    internal val isSearchingOnline get() = runningSearchJob != null
+
+    /** Tells the native screen that lists or downloads changed in the background */
+    private fun refreshNative() {
+        if (game.screen === this) game.getNativeUi()?.refresh(nativeScreen)
+    }
+
+    internal fun downloadNatively(repo: GithubAPI.Repo, progress: (String) -> Unit, done: () -> Unit) =
+        downloadMod(repo, { state, percent ->
+            val text = state.message(percent).tr()
+            Concurrency.runOnGLThread { progress(text) }
+        }) { done() }
+
+    internal fun deleteNatively(mod: Ruleset) = deleteMod(mod)
+
+    internal fun setVisualNatively(mod: Ruleset, visual: Boolean) {
+        if (visual) game.settings.visualMods.add(mod.name) else game.settings.visualMods.remove(mod.name)
+        game.settings.save()
+        ImageGetter.reloadImages()
+        installedModInfo[mod.name]?.isVisual = visual
+    }
+
+    internal fun retryOnlineNatively() = reloadOnlineMods()
+
+    internal fun closeNatively() = closeButton.activate()
+
+    private val drawnNatively get() = game.getNativeUi()?.replacesScreens() == true
+
+    //endregion
+
     override fun dispose() {
         // make sure the worker threads will not continue trying their time-intensive job
         runningSearchJob?.cancel()
@@ -183,8 +226,11 @@ class ModManagementScreen private constructor(
 
         refreshInstalledModTable()
 
-        refreshOnlineModTable() // Refresh table - chances are we have cached data...
-        reloadOnlineMods() //... and still try to get fresh data from online
+        // The native screen adds mods from links only and never lists mods from GitHub
+        if (!drawnNatively) {
+            refreshOnlineModTable() // Refresh table - chances are we have cached data...
+            reloadOnlineMods() //... and still try to get fresh data from online
+        }
     }
 
     private fun initPortrait() {
@@ -298,6 +344,7 @@ class ModManagementScreen private constructor(
             } catch (ex: Exception) {
                 Log.error("Could not download mod list", ex)
                 runningSearchJob = null
+                launchOnGLThread { refreshNative() }
                 return@run
             }
 
@@ -307,6 +354,7 @@ class ModManagementScreen private constructor(
 
             launchOnGLThread { addModInfoFromRepoSearch(repoSearch, pageNum) }
             runningSearchJob = null
+            launchOnGLThread { refreshNative() }
         }
     }
 
@@ -373,6 +421,7 @@ class ModManagementScreen private constructor(
         // continue search unless last page was reached
         if (repoSearch.items.size >= amountPerPage && !stopBackgroundTasks)
             tryDownloadPage(pageNum + 1)
+        refreshNative()
     }
 
     private fun markOnlineQueryIncomplete() {
@@ -662,6 +711,7 @@ class ModManagementScreen private constructor(
             if (!mod.matchesFilter(filter)) continue
             installedModsTable.add(getCachedModButton(mod)).row()
         }
+        refreshNative()
     }
 
     private fun installedButtonAction(mod: ModUIData, button: ModDecoratedButton) {
@@ -736,6 +786,7 @@ class ModManagementScreen private constructor(
 
         onlineModsTable.pack()
         scrollOnlineMods.actor = onlineModsTable
+        refreshNative()
     }
 
     /** Updates the description label at the bottom of the screen */

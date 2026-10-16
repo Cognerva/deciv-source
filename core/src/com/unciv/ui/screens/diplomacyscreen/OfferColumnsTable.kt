@@ -18,8 +18,8 @@ import com.unciv.view.TradeView
 class OfferColumnsTable(
     private val tradeView: TradeView,
     private val screen: DiplomacyScreen,
-    private val ourCiv: ForeignCivView,
-    private val theirCiv: ForeignCivView,
+    internal val ourCiv: ForeignCivView,
+    internal val theirCiv: ForeignCivView,
     private val onChange: () -> Unit
 ): Table(BaseScreen.skin) {
 

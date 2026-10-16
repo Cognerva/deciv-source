@@ -1,5 +1,7 @@
 package com.unciv.ui.screens.diplomacyscreen
 
+import com.unciv.ui.nativeui.NativeScreenHost
+import com.unciv.ui.nativeui.DiplomacyPresenter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.scenes.scene2d.ui.SplitPane
 import com.badlogic.gdx.scenes.scene2d.ui.Table
@@ -52,7 +54,9 @@ class DiplomacyScreen(
     private val selectCivView: ForeignCivView? = null,
     private val selectTrade: Trade? = null,
     private val showTrade: Boolean = selectTrade != null
-): BaseScreen(), RecreateOnResize {
+): BaseScreen(), RecreateOnResize, NativeScreenHost {
+    override val nativeScreen by lazy { DiplomacyPresenter(this).also { it.selected = selectCivView?.getCiv() } }
+
     companion object {
         private const val nationIconSize = 100f
         private const val nationIconPad = 10f
